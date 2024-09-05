@@ -1,7 +1,8 @@
 /*
  * MIT License
  *
- * Copyright (c) 2023 CarpeNoctem
+ * Copyright (c) 2023,2024 @CarpeNoctem, Dennis Faucher, with code from Joey Castillo
+ * borrowed from other parts of the project - namely sunrise_sunset, and templated code.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -41,9 +42,29 @@
  */
 
 typedef struct {
-    // Anything you need to keep track of, put it here!
-    uint8_t unused;
+    uint8_t display_type; // See simple_tide_display_type_t below.
+    uint8_t tide_event_index; 
+    uint8_t active_time_setting_slot; // 0 if we're setting hours, 1 if we're setting minutes
+    watch_date_time next_high_tide_time;
+    watch_date_time next_low_tide_time;
+    uint8_t alert_setting; // 0 = off, 1 = high tide, 2 = low tide, 3 = both
 } simple_tide_state_t;
+
+typedef enum {
+    TIDE_DISPLAY_SET_HIGH_TIDE = 0, // Set next high time
+    TIDE_DISPLAY_SET_LOW_TIDE,      // Set next low tide time
+    TIDE_DISPLAY_SET_ALERT,         // Set chime for tide events: Off, High, Low, Both
+    TIDE_DISPLAY_TIDE_TIME,         // Show the time of the next tide event(s)
+    TIDE_DISPLAY_TIDE_COUNTDOWN,    // Show time remaining until next tide event(s)
+    TIDE_DISPLAY_TIDE_GRAPH         // Show a graph of the tide coming in or going out. (Thanks, Dennis Faucher!)
+} simple_tide_display_type_t;
+
+typedef enum {
+    TIDE_CHIME_OFF = 0,
+    TIDE_CHIME_HIGH,
+    TIDE_CHIME_LOW,
+    TIDE_CHIME_BOTH
+} simple_dide_alert_setting_t;
 
 void simple_tide_face_setup(movement_settings_t *settings, uint8_t watch_face_index, void ** context_ptr);
 void simple_tide_face_activate(movement_settings_t *settings, void *context);
