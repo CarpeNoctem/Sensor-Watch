@@ -75,7 +75,6 @@ static watch_duration_t _simple_tide_get_duration_until_low(movement_settings_t 
 }
 
 // To-do: Check this against python test code to make it smarter, and make sure to clean up function references to those we've already defined.
-// To-done #2: Keep updating the next tide times until they're in the future.
 // Predict new tide times
 static void _simpletide_check_and_update_next_tide_times(movement_settings_t *settings, simple_tide_state_t *state) {
     int now_unix_time = watch_utility_date_time_to_unix_time(watch_rtc_get_date_time(), settings->bit.time_zone);
@@ -320,9 +319,13 @@ bool simple_tide_face_loop(movement_event_t event, movement_settings_t *settings
                     // The 300 seconds in this condition is to try to avoid someone setting the next tide time for now, but then having that end up in the past and triggering it to roll over to tomorrow.
                     if (watch_utility_date_time_to_unix_time(state->next_high_tide_time, settings->bit.time_zone) < watch_utility_date_time_to_unix_time(now, settings->bit.time_zone) - 300) {
                         state->next_high_tide_time.unit.day = now.unit.day + 1;
+                    } else {
+                        state->next_high_tide_time.unit.day = now.unit.day; // Help protect against system date changes / give user a way reset these
                     }
                     if (watch_utility_date_time_to_unix_time(state->next_low_tide_time, settings->bit.time_zone) < watch_utility_date_time_to_unix_time(now, settings->bit.time_zone) - 300) {
                         state->next_low_tide_time.unit.day = now.unit.day + 1;
+                    } else {
+                        state->next_low_tide_time.unit.day = now.unit.day;
                     }
                     _simple_tide_face_update_settings_display(settings, state);
                     break;
