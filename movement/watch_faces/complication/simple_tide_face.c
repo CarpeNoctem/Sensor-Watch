@@ -75,21 +75,21 @@ static watch_duration_t _simple_tide_get_duration_until_low(movement_settings_t 
 }
 
 // To-do: Check this against python test code to make it smarter, and make sure to clean up function references to those we've already defined.
+// To-done #2: Keep updating the next tide times until they're in the future.
+// Predict new tide times
 static void _simpletide_check_and_update_next_tide_times(movement_settings_t *settings, simple_tide_state_t *state) {
     int now_unix_time = watch_utility_date_time_to_unix_time(watch_rtc_get_date_time(), settings->bit.time_zone);
-    watch_date_time next_high = state->next_high_tide_time;
-    watch_date_time next_low = state->next_low_tide_time;
-    int next_high_unix_time = watch_utility_date_time_to_unix_time(next_high, settings->bit.time_zone);
-    int next_low_unix_time = watch_utility_date_time_to_unix_time(next_low, settings->bit.time_zone);
+    int next_high_unix_time = watch_utility_date_time_to_unix_time(state->next_high_tide_time, settings->bit.time_zone);
+    int next_low_unix_time = watch_utility_date_time_to_unix_time(state->next_low_tide_time, settings->bit.time_zone);
 
     // If the next high tide time is in the past, calculate the next high tide time based on the current time and the known time difference between high and low tide.
-    if (next_high_unix_time < now_unix_time) {
+    while (next_high_unix_time < now_unix_time) {
         next_high_unix_time += 12 * 3600 + 25 * 60; // 12 hours 25 minutes
         state->next_high_tide_time = watch_utility_date_time_from_unix_time(next_high_unix_time, settings->bit.time_zone);
     }
 
     // If the next low tide time is in the past, calculate the next low tide time based on the current time and the known time difference between high and low tide.
-    if (next_low_unix_time < now_unix_time) {
+    while (next_low_unix_time < now_unix_time) {
         next_low_unix_time += 12 * 3600 + 25 * 60; // 12 hours 25 minutes
         state->next_low_tide_time = watch_utility_date_time_from_unix_time(next_low_unix_time, settings->bit.time_zone);
     }
