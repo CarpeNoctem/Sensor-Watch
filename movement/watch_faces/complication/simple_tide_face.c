@@ -76,7 +76,7 @@ static watch_duration_t _simple_tide_get_duration_until_low(movement_settings_t 
 
 // To-do: Check this against python test code to make it smarter, and make sure to clean up function references to those we've already defined.
 // Predict new tide times
-static void _simpletide_check_and_update_next_tide_times(movement_settings_t *settings, simple_tide_state_t *state) {
+static void _simple_tide_check_and_update_next_tide_times(movement_settings_t *settings, simple_tide_state_t *state) {
     int now_unix_time = watch_utility_date_time_to_unix_time(watch_rtc_get_date_time(), settings->bit.time_zone);
     int next_high_unix_time = watch_utility_date_time_to_unix_time(state->next_high_tide_time, settings->bit.time_zone);
     int next_low_unix_time = watch_utility_date_time_to_unix_time(state->next_low_tide_time, settings->bit.time_zone);
@@ -110,7 +110,7 @@ static void _simple_tide_face_update(movement_settings_t *settings, simple_tide_
         return;
     }
 
-    _simpletide_check_and_update_next_tide_times(settings, state);
+    _simple_tide_check_and_update_next_tide_times(settings, state);
 
     // To-do: split out a function here to check whether either of the next tide times are in the past,
     // and if so, calculate the next tide times based on the current time and the known time difference between high and low tide.
@@ -273,32 +273,36 @@ bool simple_tide_face_loop(movement_event_t event, movement_settings_t *settings
             // illuminate the LED in response to EVENT_LIGHT_BUTTON_DOWN; to suppress that behavior, add an
             // empty case for EVENT_LIGHT_BUTTON_DOWN.
             // Unless we're in a settings page, advance the display type
-            if (state->display_type > TIDE_DISPLAY_SET_ALERT) { 
+            if (state->display_type > TIDE_DISPLAY_SET_ALERT) { // To-do: change this to a switch statement for clarity
                 state->display_type += 1;
                 if (state->display_type > TIDE_DISPLAY_TIDE_GRAPH) { state->display_type = TIDE_DISPLAY_TIDE_TIME; }
                 printf("Display type: %d\n", state->display_type); //To-do: remove debug
                 _simple_tide_face_update(settings, state);
                 break;
             } else if (state->display_type == TIDE_DISPLAY_SET_ALERT) {
-                state->alert_setting += 1;
-                if (state->alert_setting > 3) { state->alert_setting = 0; }
-                _simple_tide_face_update_settings_display(settings, state);
+                // Close settings and return to the main display
+                state->display_type = TIDE_DISPLAY_TIDE_TIME;
+                _simple_tide_face_update(settings,state);
                 break;
             } else {
-                // To-do: ?
-                if (state->display_type == TIDE_DISPLAY_SET_HIGH_TIDE) {
-                    if (state->active_time_setting_slot == 0) {
-                        printf("Light pushed. Updating hour from %d to %d\n", state->next_high_tide_time.unit.hour, state->next_high_tide_time.unit.hour+1);
-                        state->next_high_tide_time.unit.hour = (state->next_high_tide_time.unit.hour + 1) % 24;
-                    } else {
-                        state->next_high_tide_time.unit.minute = (state->next_high_tide_time.unit.minute + 1) % 60;
-                    }
+                // Advance to the next slot in setting the tide times
+                // Then advance to the next setting
+                state->active_time_setting_slot += 1;
+                if (state->active_time_setting_slot > 1) {
+                    state->active_time_setting_slot = 0;
+                    state->display_type += 1;
+                }
+                // If the next tide times have already passed today, we assume the user means that time tomorrow.
+                // The 300 seconds in this condition is to try to avoid someone setting the next tide time for now, but then having that end up in the past and triggering it to roll over to tomorrow.
+                if (watch_utility_date_time_to_unix_time(state->next_high_tide_time, settings->bit.time_zone) < watch_utility_date_time_to_unix_time(now, settings->bit.time_zone) - 300) {
+                    state->next_high_tide_time.unit.day = now.unit.day + 1;
                 } else {
-                    if (state->active_time_setting_slot == 0) {
-                        state->next_low_tide_time.unit.hour = (state->next_low_tide_time.unit.hour + 1) % 24;
-                    } else {
-                        state->next_low_tide_time.unit.minute = (state->next_low_tide_time.unit.minute + 1) % 60;
-                    }
+                    state->next_high_tide_time.unit.day = now.unit.day; // Help protect against system date changes / give user a way reset these
+                }
+                if (watch_utility_date_time_to_unix_time(state->next_low_tide_time, settings->bit.time_zone) < watch_utility_date_time_to_unix_time(now, settings->bit.time_zone) - 300) {
+                    state->next_low_tide_time.unit.day = now.unit.day + 1;
+                } else {
+                    state->next_low_tide_time.unit.day = now.unit.day;
                 }
                 _simple_tide_face_update_settings_display(settings, state);
                 break;
@@ -307,32 +311,26 @@ bool simple_tide_face_loop(movement_event_t event, movement_settings_t *settings
         case EVENT_ALARM_BUTTON_UP:
             switch (state->display_type) {
                 case TIDE_DISPLAY_SET_HIGH_TIDE:
+                    if (state->active_time_setting_slot == 0) {
+                        printf("Light pushed. Updating hour from %d to %d\n", state->next_high_tide_time.unit.hour, state->next_high_tide_time.unit.hour+1);
+                        state->next_high_tide_time.unit.hour = (state->next_high_tide_time.unit.hour + 1) % 24;
+                    }else {
+                        state->next_high_tide_time.unit.minute = (state->next_high_tide_time.unit.minute + 1) % 60;
+                    }
+                    _simple_tide_face_update_settings_display(settings, state);
+                    break;
                 case TIDE_DISPLAY_SET_LOW_TIDE:
-                    // Advance to the next slot in setting the tide times
-                    // Then advance to the next setting
-                    state->active_time_setting_slot += 1;
-                    if (state->active_time_setting_slot > 1) {
-                        state->active_time_setting_slot = 0;
-                        state->display_type += 1;
-                    }
-                    // If the next tide times have already passed today, we assume the user means that time tomorrow.
-                    // The 300 seconds in this condition is to try to avoid someone setting the next tide time for now, but then having that end up in the past and triggering it to roll over to tomorrow.
-                    if (watch_utility_date_time_to_unix_time(state->next_high_tide_time, settings->bit.time_zone) < watch_utility_date_time_to_unix_time(now, settings->bit.time_zone) - 300) {
-                        state->next_high_tide_time.unit.day = now.unit.day + 1;
+                    if (state->active_time_setting_slot == 0) {
+                        state->next_low_tide_time.unit.hour = (state->next_low_tide_time.unit.hour + 1) % 24;
                     } else {
-                        state->next_high_tide_time.unit.day = now.unit.day; // Help protect against system date changes / give user a way reset these
-                    }
-                    if (watch_utility_date_time_to_unix_time(state->next_low_tide_time, settings->bit.time_zone) < watch_utility_date_time_to_unix_time(now, settings->bit.time_zone) - 300) {
-                        state->next_low_tide_time.unit.day = now.unit.day + 1;
-                    } else {
-                        state->next_low_tide_time.unit.day = now.unit.day;
+                        state->next_low_tide_time.unit.minute = (state->next_low_tide_time.unit.minute + 1) % 60;
                     }
                     _simple_tide_face_update_settings_display(settings, state);
                     break;
                 case TIDE_DISPLAY_SET_ALERT:
-                    // Close settings and return to the main display
-                    state->display_type = TIDE_DISPLAY_TIDE_TIME;
-                    _simple_tide_face_update(settings,state);
+                    state->alert_setting += 1;
+                    if (state->alert_setting > 3) { state->alert_setting = 0; }
+                    _simple_tide_face_update_settings_display(settings, state);
                     break;
                 case TIDE_DISPLAY_TIDE_TIME:
                 case TIDE_DISPLAY_TIDE_COUNTDOWN:
