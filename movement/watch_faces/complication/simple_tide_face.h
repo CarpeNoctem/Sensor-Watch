@@ -48,6 +48,8 @@ typedef struct {
     watch_date_time next_high_tide_time;
     watch_date_time next_low_tide_time;
     uint8_t alert_setting; // 0 = off, 1 = high tide, 2 = low tide, 3 = both
+    uint8_t working_hours; // Scratch space for setting the next high or low tide time
+    uint8_t working_minutes; // Scratch space for setting the next high or low tide time
 } simple_tide_state_t;
 
 typedef enum {
