@@ -51,7 +51,11 @@ void simple_clock_face_activate(movement_settings_t *settings, void *context) {
 
     if (watch_tick_animation_is_running()) watch_stop_tick_animation();
 
+#ifdef CLOCK_FACE_24H_ONLY
+    watch_set_indicator(WATCH_INDICATOR_24H);
+#else
     if (settings->bit.clock_mode_24h) watch_set_indicator(WATCH_INDICATOR_24H);
+#endif
 
     // handle chime indicator
     if (state->signal_enabled) watch_set_indicator(WATCH_INDICATOR_BELL);
@@ -106,6 +110,7 @@ bool simple_clock_face_loop(movement_event_t event, movement_settings_t *setting
                 sprintf(buf, "%02d%02d", date_time.unit.minute, date_time.unit.second);
             } else {
                 // other stuff changed; let's do it all.
+#ifndef CLOCK_FACE_24H_ONLY
                 if (!settings->bit.clock_mode_24h) {
                     // if we are in 12 hour mode, do some cleanup.
                     if (date_time.unit.hour < 12) {
@@ -116,6 +121,7 @@ bool simple_clock_face_loop(movement_event_t event, movement_settings_t *setting
                     date_time.unit.hour %= 12;
                     if (date_time.unit.hour == 0) date_time.unit.hour = 12;
                 }
+#endif
                 pos = 0;
                 if (event.event_type == EVENT_LOW_ENERGY_UPDATE) {
                     if (!watch_tick_animation_is_running()) watch_start_tick_animation(500);
@@ -136,17 +142,7 @@ bool simple_clock_face_loop(movement_event_t event, movement_settings_t *setting
         case EVENT_BACKGROUND_TASK:
             // uncomment this line to snap back to the clock face when the hour signal sounds:
             // movement_move_to_face(state->watch_face_index);
-            if (watch_is_buzzer_or_led_enabled()) {
-                // if we are in the foreground, we can just beep.
-                movement_play_signal();
-            } else {
-                // if we were in the background, we need to enable the buzzer peripheral first,
-                watch_enable_buzzer();
-                // beep quickly (this call blocks for 275 ms),
-                movement_play_signal();
-                // and then turn the buzzer peripheral off again.
-                watch_disable_buzzer();
-            }
+            movement_play_signal();
             break;
         default:
             return movement_default_loop_handler(event, settings);

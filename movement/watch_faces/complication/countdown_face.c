@@ -23,26 +23,11 @@
  * SOFTWARE.
  */
 
-//-----------------------------------------------------------------------------
-
 #include <stdlib.h>
 #include <string.h>
 #include "countdown_face.h"
 #include "watch.h"
 #include "watch_utility.h"
-
-/*
-    Slight extension of the original countdown face by Wesley Ellis.
-
-    - Press the light button to enter setting mode and adjust the
-      countdown timer.
-
-    - Start and pause the countdown using the alarm button, similar to the
-      stopwatch face.
-
-    - When paused or terminated, press the light button to restore the
-      last entered countdown.
-*/
 
 #define CD_SELECTIONS 3
 #define DEFAULT_MINUTES 3
@@ -102,7 +87,10 @@ static void draw(countdown_state_t *state, uint8_t subsecond) {
 
     switch (state->mode) {
         case cd_running:
-            delta = state->target_ts - state->now_ts;
+            if (state->target_ts <= state->now_ts)
+                delta = 0;
+            else
+                delta = state->target_ts - state->now_ts;
             result = div(delta, 60);
             state->seconds = result.rem;
             result = div(result.quot, 60);
@@ -112,6 +100,7 @@ static void draw(countdown_state_t *state, uint8_t subsecond) {
             break;
         case cd_reset:
         case cd_paused:
+            watch_clear_indicator(WATCH_INDICATOR_BELL);
             sprintf(buf, "CD  %2d%02d%02d", state->hours, state->minutes, state->seconds);
             break;
         case cd_setting:
@@ -145,7 +134,6 @@ static void pause(countdown_state_t *state) {
 static void reset(countdown_state_t *state) {
     state->mode = cd_reset;
     movement_cancel_background_task();
-    watch_clear_indicator(WATCH_INDICATOR_BELL);
     load_countdown(state);
 }
 
