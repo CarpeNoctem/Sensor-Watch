@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Joey Castillo
+ * Copyright (c) 2023 Edward Shin
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,15 +21,14 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-#include "driver_init.h"
 
-uint16_t sequence_length(int8_t *sequence) {
-    uint16_t result = 0;
+#ifndef SHELL_H_
+#define SHELL_H_
 
-    while (*sequence != 0){
-        result += *(sequence + 1);
-        sequence += 2;
-    }
+/** @brief Called periodically from the app loop to handle shell commands.
+ *         When a full command is complete, parses and executes its matching
+ *         callback.
+ */
+void shell_task(void);
 
-    return result;
-}
+#endif

@@ -26,8 +26,8 @@
 #include "preferences_face.h"
 #include "watch.h"
 
-#define PREFERENCES_FACE_NUM_PREFEFENCES (7)
-const char preferences_face_titles[PREFERENCES_FACE_NUM_PREFEFENCES][11] = {
+#define PREFERENCES_FACE_NUM_PREFERENCES (7)
+const char preferences_face_titles[PREFERENCES_FACE_NUM_PREFERENCES][11] = {
     "CL        ",   // Clock: 12 or 24 hour
     "BT  Beep  ",   // Buttons: should they beep?
     "TO        ",   // Timeout: how long before we snap back to the clock face?
@@ -65,7 +65,7 @@ bool preferences_face_loop(movement_event_t event, movement_settings_t *settings
             movement_move_to_next_face();
             return false;
         case EVENT_LIGHT_BUTTON_DOWN:
-            current_page = (current_page + 1) % PREFERENCES_FACE_NUM_PREFEFENCES;
+            current_page = (current_page + 1) % PREFERENCES_FACE_NUM_PREFERENCES;
             *((uint8_t *)context) = current_page;
             break;
         case EVENT_ALARM_BUTTON_UP:
@@ -99,7 +99,9 @@ bool preferences_face_loop(movement_event_t event, movement_settings_t *settings
         default:
             return movement_default_loop_handler(event, settings);
     }
-
+#ifdef CLOCK_FACE_24H_ONLY
+    if (current_page == 0) current_page++;  // Skips past 12/24HR mode
+#endif
     watch_display_string((char *)preferences_face_titles[current_page], 0);
 
     // blink active setting on even-numbered quarter-seconds
@@ -136,22 +138,22 @@ bool preferences_face_loop(movement_event_t event, movement_settings_t *settings
                         watch_display_string(" Never", 4);
                         break;
                     case 1:
-                        watch_display_string("1 hour", 4);
+                        watch_display_string("10n&in", 4);
                         break;
                     case 2:
-                        watch_display_string("2 hour", 4);
+                        watch_display_string("1 hour", 4);
                         break;
                     case 3:
-                        watch_display_string("6 hour", 4);
+                        watch_display_string("2 hour", 4);
                         break;
                     case 4:
-                        watch_display_string("12 hr", 4);
+                        watch_display_string("6 hour", 4);
                         break;
                     case 5:
-                        watch_display_string(" 1 day", 4);
+                        watch_display_string("12 hr", 4);
                         break;
                     case 6:
-                        watch_display_string(" 2 day", 4);
+                        watch_display_string(" 1 day", 4);
                         break;
                     case 7:
                         watch_display_string(" 7 day", 4);
