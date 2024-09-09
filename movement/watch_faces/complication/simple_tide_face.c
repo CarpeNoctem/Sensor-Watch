@@ -51,6 +51,27 @@ void simple_tide_face_setup(movement_settings_t *settings, uint8_t watch_face_in
 //    uint32_t timestamp = watch_utility_date_time_to_unix_time(next_rise_set, 0);
 //    state->rise_set_expires = watch_utility_date_time_from_unix_time(timestamp + 60, 0);
 //}
+// Above is related to tick event in main loop. not sure how it got here. will be addressed in the big cleanup/refactor.
+
+// Takes an hour and returns it in the preffered format, along with setting the appropriate indicators.
+static int _simple_tide_format_hr(movement_settings_t *settings, int hour) {
+    if (settings->bit.clock_mode_24h) {
+        watch_clear_indicator(WATCH_INDICATOR_PM);
+        watch_set_indicator(WATCH_INDICATOR_24H);
+        return hour;
+    }
+    watch_clear_indicator(WATCH_INDICATOR_24H);
+    if (hour >= 12) {
+        watch_set_indicator(WATCH_INDICATOR_PM);
+        hour -= 12;
+    } else {
+        watch_clear_indicator(WATCH_INDICATOR_PM);
+    }
+    if (hour == 0) {
+        hour = 12;
+    }
+    return hour;
+}
 
 static watch_duration_t _simple_tide_get_duration_until_high(movement_settings_t *settings, simple_tide_state_t *state) {
     if (state->next_high_tide_time.reg == NULL) {
@@ -131,6 +152,7 @@ static void _simple_tide_face_update(movement_settings_t *settings, simple_tide_
     // if (false && state->next_high_tide_time.reg == NULL) {
         printf("Next high tide reg: %d\n", state->next_high_tide_time.reg);
         printf("Next low tide reg: %d\n", state->next_low_tide_time.reg);
+        watch_clear_colon();
         watch_display_string("TI  no Set", 0);
         state->display_type = TIDE_DISPLAY_TIDE_TIME;
         return;
@@ -158,13 +180,15 @@ static void _simple_tide_face_update(movement_settings_t *settings, simple_tide_
     switch(state->display_type) {
         case TIDE_DISPLAY_TIDE_TIME:
             if (state->tide_event_index == 0) {
-                sprintf( buf, "TI  %2d%02dHI", state->next_high_tide_time.unit.hour, state->next_high_tide_time.unit.minute);
+                sprintf( buf, "TI  %2d%02dHI", _simple_tide_format_hr(settings, state->next_high_tide_time.unit.hour), state->next_high_tide_time.unit.minute);
             } else {
-                sprintf( buf, "TI  %2d%02dLO", state->next_low_tide_time.unit.hour, state->next_low_tide_time.unit.minute);
+                sprintf( buf, "TI  %2d%02dLO", _simple_tide_format_hr(settings, state->next_low_tide_time.unit.hour), state->next_low_tide_time.unit.minute);
             }
             watch_display_string(buf,0);
             break;
         case TIDE_DISPLAY_TIDE_COUNTDOWN:
+            watch_clear_indicator(WATCH_INDICATOR_PM);
+            watch_clear_indicator(WATCH_INDICATOR_24H);
             if (state->tide_event_index == 0) {
                 watch_duration_t duration_until_high = _simple_tide_get_duration_until_high(settings, state);
                 sprintf( buf, "CD  %2d%02dHI", duration_until_high.hours, duration_until_high.minutes);
@@ -176,6 +200,8 @@ static void _simple_tide_face_update(movement_settings_t *settings, simple_tide_
             break;
         case TIDE_DISPLAY_TIDE_GRAPH:
             watch_clear_colon();
+            watch_clear_indicator(WATCH_INDICATOR_PM);
+            watch_clear_indicator(WATCH_INDICATOR_24H);
             watch_display_string("TI1n (((((",0);
             // watch_display_string("TIOt (((((",0);
             break;
@@ -221,7 +247,7 @@ static void _simple_tide_face_update_settings_display(movement_settings_t *setti
             watch_set_colon();
             // watch_duration_t duration_until_high = _simple_tide_get_duration_until_high(settings, state);
             //sprintf(buf, "HI  %2d%02d", duration_until_high.hours, duration_until_high.minutes);
-            sprintf(buf, "HI  %2d%02d", state->working_hours, state->working_minutes);
+            sprintf(buf, "HI  %2d%02d", _simple_tide_format_hr(settings, state->working_hours), state->working_minutes);
             watch_display_string(buf,0);
             break;
         case TIDE_DISPLAY_SET_LOW_TIDE:
@@ -244,12 +270,14 @@ static void _simple_tide_face_update_settings_display(movement_settings_t *setti
             watch_set_colon();
             // watch_duration_t duration_until_low = _simple_tide_get_duration_until_low(settings, state);
             // sprintf(buf, "LO  %2d%02d", duration_until_low.hours, duration_until_low.minutes);
-            sprintf(buf, "LO  %2d%02d", state->working_hours, state->working_minutes);
+            sprintf(buf, "LO  %2d%02d", _simple_tide_format_hr(settings, state->working_hours), state->working_minutes);
             watch_display_string(buf,0);
             break;
         case TIDE_DISPLAY_SET_ALERT:
             printf("in alert setting case.\n"); //To-do: remove debug
             watch_clear_colon();
+            watch_clear_indicator(WATCH_INDICATOR_PM);
+            watch_clear_indicator(WATCH_INDICATOR_24H);
             // Show the bell icon if we've enabled the chime for low or/and high tide.
             if (state->alert_setting != TIDE_CHIME_OFF) {
                 watch_set_indicator(WATCH_INDICATOR_BELL);
