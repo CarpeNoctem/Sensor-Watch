@@ -56,7 +56,8 @@ static watch_duration_t _simple_tide_get_duration_until_high(movement_settings_t
     if (state->next_high_tide_time.reg == NULL) {
         return watch_utility_seconds_to_duration(0);
     }
-    int remaining_secs_to_high = watch_utility_date_time_to_unix_time(state->next_high_tide_time, settings->bit.time_zone) - watch_utility_date_time_to_unix_time(watch_rtc_get_date_time(), settings->bit.time_zone); 
+    int tz_offset_seconds = movement_timezone_offsets[settings->bit.time_zone] * 60;
+    int remaining_secs_to_high = watch_utility_date_time_to_unix_time(state->next_high_tide_time, tz_offset_seconds) - watch_utility_date_time_to_unix_time(watch_rtc_get_date_time(), tz_offset_seconds); 
     watch_duration_t retval = watch_utility_seconds_to_duration(remaining_secs_to_high);
     printf("Remaining duration to high tide: %d:%02d\n", retval.hours,retval.minutes); //To-do: remove debug
     // return watch_utility_seconds_to_duration(remaining_secs_to_high);
@@ -67,7 +68,8 @@ static watch_duration_t _simple_tide_get_duration_until_low(movement_settings_t 
     if (state->next_low_tide_time.reg == NULL) {
         return watch_utility_seconds_to_duration(0);
     }
-    int remaining_secs_to_low = watch_utility_date_time_to_unix_time(state->next_low_tide_time, settings->bit.time_zone) - watch_utility_date_time_to_unix_time(watch_rtc_get_date_time(), settings->bit.time_zone); 
+    int tz_offset_seconds = movement_timezone_offsets[settings->bit.time_zone] * 60;
+    int remaining_secs_to_low = watch_utility_date_time_to_unix_time(state->next_low_tide_time, tz_offset_seconds) - watch_utility_date_time_to_unix_time(watch_rtc_get_date_time(), tz_offset_seconds); 
     watch_duration_t retval = watch_utility_seconds_to_duration(remaining_secs_to_low);
     printf("Remaining duration to low tide: %d:%02d\n", retval.hours, retval.minutes); //To-do: remove debug
     // return watch_utility_seconds_to_duration(remaining_secs_to_low);
@@ -77,26 +79,44 @@ static watch_duration_t _simple_tide_get_duration_until_low(movement_settings_t 
 // To-do: Check this against python test code to make it smarter, and make sure to clean up function references to those we've already defined.
 // Predict new tide times
 static void _simple_tide_check_and_update_next_tide_times(movement_settings_t *settings, simple_tide_state_t *state) {
-    int now_unix_time = watch_utility_date_time_to_unix_time(watch_rtc_get_date_time(), settings->bit.time_zone);
-    int next_high_unix_time = watch_utility_date_time_to_unix_time(state->next_high_tide_time, settings->bit.time_zone);
-    int next_low_unix_time = watch_utility_date_time_to_unix_time(state->next_low_tide_time, settings->bit.time_zone);
+    printf("Checking and updating next tide times...\n"); //To-do: remove debug
+    watch_date_time now = watch_rtc_get_date_time();
+    int tz_offset_seconds = movement_timezone_offsets[settings->bit.time_zone] * 60;
+    int now_unix_time = watch_utility_date_time_to_unix_time(watch_rtc_get_date_time(), tz_offset_seconds);
+    int next_high_unix_time = watch_utility_date_time_to_unix_time(state->next_high_tide_time, tz_offset_seconds);
+    int next_low_unix_time = watch_utility_date_time_to_unix_time(state->next_low_tide_time, tz_offset_seconds);
+
+    printf("Timezone offset: %d\n", tz_offset_seconds); //To-do: remove debug
+
+    printf("Now: (%d) %2d-%2d-%2d %2d:%02d\n", now_unix_time, now.unit.year, now.unit.month, now.unit.day, now.unit.hour, now.unit.minute); //To-do: remove debug
+    printf("Next high tide time: (%d) %2d-%2d-%2d %2d:%02d\n", next_high_unix_time, state->next_high_tide_time.unit.year, state->next_high_tide_time.unit.month, state->next_high_tide_time.unit.day, state->next_high_tide_time.unit.hour, state->next_high_tide_time.unit.minute); //To-do: remove debug
+    printf("Next low tide time: (%d) %2d-%2d-%2d %2d:%02d\n", next_low_unix_time, state->next_low_tide_time.unit.year, state->next_low_tide_time.unit.month, state->next_low_tide_time.unit.day, state->next_low_tide_time.unit.hour, state->next_low_tide_time.unit.minute); //To-do: remove debug
+    
 
     // To-do?: add maximum abs(duration) check to make sure we're not doing something crazy here, and justs resets these to NULL
     // e.g. catching up from when we checked this face a year ago, or doing nothing if the user has set their time back to a past date.
 
     // If the next high tide time is in the past, calculate the next high tide time based on the current time and the known time difference between high and low tide.
     while (next_high_unix_time < now_unix_time) {
-        next_high_unix_time += 12 * 3600 + 25 * 60; // 12 hours 25 minutes
         printf("Next high has passed. Recalculating...\n"); //To-do: remove debug
-        state->next_high_tide_time = watch_utility_date_time_from_unix_time(next_high_unix_time, settings->bit.time_zone);
+        next_high_unix_time += 12 * 3600 + 25 * 60; // 12 hours 25 minutes
+        printf("Next high tide timestamp: %d\n", next_high_unix_time); //To-do: remove debug
+        state->next_high_tide_time = watch_utility_date_time_from_unix_time(next_high_unix_time, tz_offset_seconds);
     }
+    printf("Done checking and updating next HIGH tide time.\n"); //To-do: remove debug
+    printf("Next high tide time: %2d-%2d-%2d %2d:%02d\n", state->next_high_tide_time.unit.year, state->next_high_tide_time.unit.month, state->next_high_tide_time.unit.day, state->next_high_tide_time.unit.hour, state->next_high_tide_time.unit.minute); //To-do: remove debug
 
     // If the next low tide time is in the past, calculate the next low tide time based on the current time and the known time difference between high and low tide.
     while (next_low_unix_time < now_unix_time) {
-        next_low_unix_time += 12 * 3600 + 25 * 60; // 12 hours 25 minutes
         printf("Next low has passed. Recalculating...\n"); //To-do: remove debug
-        state->next_low_tide_time = watch_utility_date_time_from_unix_time(next_low_unix_time, settings->bit.time_zone);
+        next_low_unix_time += 12 * 3600 + 25 * 60; // 12 hours 25 minutes
+        printf("Next low tide timestamp: %d\n", next_low_unix_time); //To-do: remove debug
+        state->next_low_tide_time = watch_utility_date_time_from_unix_time(next_low_unix_time, tz_offset_seconds);
     }
+    printf("Done checking and updating next LOW tide time.\n"); //To-do: remove debug
+    printf("Next low tide time: %2d-%2d-%2d %2d:%02d\n", state->next_low_tide_time.unit.year, state->next_low_tide_time.unit.month, state->next_low_tide_time.unit.day, state->next_low_tide_time.unit.hour, state->next_low_tide_time.unit.minute); //To-do: remove debug
+
+    printf("Exiting tide check and update function.\n"); //To-do: remove debug
 }
 
 static void _simple_tide_face_update(movement_settings_t *settings, simple_tide_state_t *state) {
@@ -313,7 +333,8 @@ bool simple_tide_face_loop(movement_event_t event, movement_settings_t *settings
 
 
                         watch_date_time now = watch_rtc_get_date_time();
-                        int now_unix_time = watch_utility_date_time_to_unix_time(now, settings->bit.time_zone);
+                        int tz_offset_seconds = movement_timezone_offsets[settings->bit.time_zone] * 60;
+                        int now_unix_time = watch_utility_date_time_to_unix_time(now, tz_offset_seconds);
 
                         if (state->display_type == TIDE_DISPLAY_SET_HIGH_TIDE) {
                             state->next_high_tide_time = now;
@@ -321,10 +342,10 @@ bool simple_tide_face_loop(movement_event_t event, movement_settings_t *settings
                             state->next_high_tide_time.unit.minute = state->working_minutes;
                             state->next_high_tide_time.unit.second = 0;
 
-                            int next_high_unix_time = watch_utility_date_time_to_unix_time(state->next_high_tide_time, settings->bit.time_zone);
+                            int next_high_unix_time = watch_utility_date_time_to_unix_time(state->next_high_tide_time, tz_offset_seconds);
                             if (next_high_unix_time < now_unix_time - 120) {
                                 next_high_unix_time += 24 * 3600; // 24 hours
-                                state->next_high_tide_time = watch_utility_date_time_from_unix_time(next_high_unix_time, settings->bit.time_zone);
+                                state->next_high_tide_time = watch_utility_date_time_from_unix_time(next_high_unix_time, tz_offset_seconds);
                                 // state->next_high_tide_time.unit.day = now.unit.day + 1;
                                 printf("High tide time is in the past. Setting to tomorrow.\n"); //To-do: remove debug
                             }
@@ -334,10 +355,10 @@ bool simple_tide_face_loop(movement_event_t event, movement_settings_t *settings
                             state->next_low_tide_time.unit.minute = state->working_minutes;
                             state->next_low_tide_time.unit.second = 0;
 
-                            int next_low_unix_time = watch_utility_date_time_to_unix_time(state->next_low_tide_time, settings->bit.time_zone);
+                            int next_low_unix_time = watch_utility_date_time_to_unix_time(state->next_low_tide_time, tz_offset_seconds);
                             if (next_low_unix_time < now_unix_time - 120) {
                                 next_low_unix_time += 24 * 3600; // 24 hours
-                                state->next_low_tide_time = watch_utility_date_time_from_unix_time(next_low_unix_time, settings->bit.time_zone);
+                                state->next_low_tide_time = watch_utility_date_time_from_unix_time(next_low_unix_time, tz_offset_seconds);
                                 // state->next_low_tide_time.unit.day = now.unit.day + 1;
                                 printf("Low tide time is in the past. Setting to tomorrow.\n"); //To-do: remove debug
                             }
