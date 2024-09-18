@@ -59,7 +59,7 @@ const watch_face_t watch_faces[] = {
 #define MOVEMENT_SECONDARY_FACE_INDEX (MOVEMENT_NUM_FACES - 6) // or (0)
 
 /* Custom hourly chime tune. Check movement_custom_signal_tunes.h for options. */
-#define SIGNAL_TUNE_DEFAULT
+#define SIGNAL_TUNE_ZELDA_SECRET
 
 /* Determines the intensity of the led colors
  * Set a hex value 0-15 with 0x0 being off and 0xF being max intensity
